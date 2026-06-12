@@ -395,7 +395,7 @@ ${topicPart}
 - 最後に「---」で区切って、締めの1ブロック(20〜40文字の余韻のある一文)
 - 出力はこの本文のみ。前置き・解説・コードブロック記号は一切書かない`;
   try{
-    const res = await fetch('https://api.anthropic.com/v1/messages',{
+    const res = await fetch('/api/generate',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
