@@ -97,6 +97,14 @@
     font-size:11px;padding:3px 7px;border-radius:6px;text-align:center;
   }
   footer{margin-top:26px;font-size:12px;color:var(--muted)}
+  .tag-box{
+    background:#FBFAFD;border:1px solid var(--line);border-radius:8px;
+    padding:14px;min-height:60px;font-size:15px;line-height:2;
+    word-break:break-all;color:var(--accent);margin-top:10px;
+  }
+  .tag-box.empty{color:var(--muted);font-size:13px;}
+  .btn-copy{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+  .btn-copy.done{background:#4CAF50;border-color:#4CAF50;}
   @media (max-width:560px){
     #previews{grid-template-columns:repeat(2,1fr)}
   }
@@ -149,6 +157,15 @@
     </div>
     <p class="hint">背景画像は、ChatGPTなどの画像AIで作ったイラストや、ご自身で撮った写真をアップロードできます。文字が読みやすいよう自動で薄い色をかけます。</p>
     <div id="previews"></div>
+  </section>
+
+  <section class="panel">
+    <h2>3. ハッシュタグ</h2>
+    <div id="tagBox" class="tag-box empty">文章を入れると自動でハッシュタグが出ます</div>
+    <div style="margin-top:10px;display:flex;gap:10px;align-items:center;">
+      <button class="btn-copy" id="copyBtn">コピー</button>
+      <span class="hint" id="copyMsg"></span>
+    </div>
   </section>
 
   <footer>画像サイズ:1080×1350px(縦長4:5)。保存した画像は連番のまま順に選べばカルーセルになります。</footer>
@@ -364,6 +381,70 @@ saveBtn.addEventListener('click', async ()=>{
     saveBtn.disabled=false;
   }
 });
+
+// ── ハッシュタグ抽出 ──────────────────────────────
+const tagBox  = document.getElementById('tagBox');
+const copyBtn = document.getElementById('copyBtn');
+const copyMsg = document.getElementById('copyMsg');
+
+const TAG_RULES = [
+  [/雨|傘|梅雨/,             ['#梅雨','#雨の日']],
+  [/雪|冬|寒/,               ['#冬恋愛','#冬']],
+  [/桜|春|卒業|入学/,        ['#春','#桜']],
+  [/夏|海|花火|祭/,          ['#夏恋愛','#夏']],
+  [/秋|紅葉/,                ['#秋','#秋恋愛']],
+  [/片思い|好き|伝えられない/,['#片思い','#片想い']],
+  [/返信|既読|LINE|ライン/,  ['#既読スルー','#LINEあるある']],
+  [/別れ|さよなら|終わり/,   ['#失恋','#別れ']],
+  [/再会|また会|久しぶり/,   ['#再会','#運命']],
+  [/卒業|3月/,               ['#卒業','#卒業式']],
+  [/告白|勇気|言えなかった/, ['#告白','#勇気']],
+  [/電車|通学|帰り道/,       ['#通学','#帰り道']],
+  [/カフェ|コーヒー/,        ['#カフェ','#カフェ恋愛']],
+  [/夜|深夜|眠れない/,       ['#夜','#深夜']],
+  [/涙|泣/,                  ['#涙','#泣ける']],
+  [/距離|隣|近く/,           ['#ドキドキ']],
+  [/沈黙|静か|言葉/,         ['#切ない']],
+];
+const FIXED_TAGS = ['#恋愛','#恋愛小説','#恋愛カルーセル','#恋愛あるある','#片思い中の人に届け','#インスタ小説','#共感'];
+
+function extractTags(text){
+  if(!text.trim()) return [];
+  const matched = new Set();
+  for(const [re,tags] of TAG_RULES){ if(re.test(text)) tags.forEach(t=>matched.add(t)); }
+  for(const t of FIXED_TAGS) matched.add(t);
+  return [...matched];
+}
+
+function updateTags(){
+  const tags = extractTags(srcEl.value);
+  if(!tags.length){
+    tagBox.textContent='文章を入れると自動でハッシュタグが出ます';
+    tagBox.classList.add('empty');
+  } else {
+    tagBox.textContent=tags.join(' ');
+    tagBox.classList.remove('empty');
+  }
+}
+
+copyBtn.addEventListener('click', async ()=>{
+  if(tagBox.classList.contains('empty')) return;
+  const text = tagBox.textContent;
+  try{
+    await navigator.clipboard.writeText(text);
+  } catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  copyMsg.textContent='コピーしました！';
+  copyBtn.textContent='コピー済み ✓';
+  copyBtn.classList.add('done');
+  setTimeout(()=>{ copyMsg.textContent=''; copyBtn.textContent='コピー'; copyBtn.classList.remove('done'); },2500);
+});
+
+srcEl.addEventListener('input', updateTags);
+updateTags();
 
 renderAll();
 })();
