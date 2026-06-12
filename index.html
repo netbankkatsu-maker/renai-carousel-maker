@@ -160,10 +160,7 @@
 const W = 1080, H = 1350;
 const srcEl = document.getElementById('src');
 const previews = document.getElementById('previews');
-const statusEl = document.getElementById('status');
-const genBtn = document.getElementById('genBtn');
 const saveBtn = document.getElementById('saveBtn');
-const themeEl = document.getElementById('theme');
 
 const SERIF = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","MS PMincho",serif';
 const HAND  = '"Klee One","Klee","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif';
@@ -336,11 +333,9 @@ document.getElementById('tplPick').addEventListener('change', ()=>{
   renderAll();
 });
 
-const sleep = ms => new Promise(r=>setTimeout(r,ms));
-
 saveBtn.addEventListener('click', async ()=>{
   const canvases = previews.querySelectorAll('canvas');
-  if(canvases.length===0){ setStatus('先に文章を入れてください。', true); return; }
+  if(canvases.length===0){ alert('先に文章を入れてください。'); return; }
   saveBtn.disabled=true;
   const orig = saveBtn.textContent;
   saveBtn.textContent='ZIPを作成中…';
@@ -349,7 +344,10 @@ saveBtn.addEventListener('click', async ()=>{
     let i=0;
     for(const cv of canvases){
       i++;
-      const blob = await new Promise(res=>cv.toBlob(res,'image/png'));
+      const blob = await new Promise((res,rej)=>{
+        try{ cv.toBlob(b=>{ if(b) res(b); else rej(new Error('blob null')); },'image/png'); }
+        catch(e){ rej(e); }
+      });
       zip.file(String(i).padStart(2,'0')+'.png', blob);
     }
     const out = await zip.generateAsync({type:'blob'});
@@ -358,63 +356,12 @@ saveBtn.addEventListener('click', async ()=>{
     a.download='carousel_'+new Date().toISOString().slice(0,10)+'.zip';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    setStatus('ZIPで保存しました。スマホでは「ファイル」アプリから開けます。');
   }catch(e){
     console.error(e);
-    setStatus('保存に失敗しました。もう一度お試しください。', true);
-  }
-  saveBtn.textContent=orig;
-  saveBtn.disabled=false;
-});
-
-function setStatus(msg, isErr){
-  statusEl.textContent=msg;
-  statusEl.className='status'+(isErr?' error':'');
-}
-
-genBtn.addEventListener('click', async ()=>{
-  genBtn.disabled=true;
-  setStatus('AIが今日の話題を調べて執筆中です…(30秒ほどかかることがあります)');
-  const theme = themeEl.value.trim();
-  const topicPart = theme
-    ? `テーマ:「${theme}」。必要なら今日の季節感をウェブ検索で軽く補ってください。`
-    : `まずウェブ検索で、今日の日本の「軽い話題」(季節の話題、天気、食べ物、流行、明るいエンタメなど)をひとつ選んでください。`;
-  const prompt = `あなたは日本のSNSで人気の恋愛ショート小説作家です。
-${topicPart}
-事件・事故・災害・訃報・政治・戦争・病気・炎上などの重い話題は、テーマ指定があっても題材に使わず、別の軽い切り口に置き換えてください。
-その題材で、切なくて共感を呼ぶ恋愛小説風のカルーセル用テキストを書いてください。対象読者は10代後半〜30代。性的な表現は使わない。
-
-出力ルール(厳守):
-- 1行目: タイトル(15文字以内)
-- 次の行に「---」だけの行
-- 本文を5ブロック(各40〜80文字。途中に改行を1〜2回入れてよい)。各ブロックの間は「---」だけの行で区切る
-- 最後に「---」で区切って、締めの1ブロック(20〜40文字の余韻のある一文)
-- 出力はこの本文のみ。前置き・解説・コードブロック記号は一切書かない`;
-  try{
-    const res = await fetch('/api/generate',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}],
-        tools:[{type:'web_search_20250305',name:'web_search'}]
-      })
-    });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    let text = (data.content||[])
-      .filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-    text = text.replace(/```[a-z]*\n?/g,'').trim();
-    if(!text || !text.includes('---')) throw new Error('形式エラー');
-    srcEl.value = text;
-    renderAll();
-    setStatus('できました。文章は自由に直せます。');
-  }catch(e){
-    console.error(e);
-    setStatus('生成できませんでした。※「AIでネタを作る」はclaude.aiの画面内でだけ動きます。Vercelなど外部に置いたページでは、Claudeアプリで文章を作ってコピー&ペーストしてください。', true);
+    alert('保存に失敗しました。もう一度お試しください。\n'+e.message);
   }finally{
-    genBtn.disabled=false;
+    saveBtn.textContent=orig;
+    saveBtn.disabled=false;
   }
 });
 
