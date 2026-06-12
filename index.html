@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>恋愛カルーセルメーカー</title>
+<style>
+  :root{
+    --bg:#EFEDF3;        /* 薄暮のラベンダーグレー */
+    --ink:#27222E;
+    --muted:#837C90;
+    --card:#FFFFFF;
+    --line:#DCD8E4;
+    --accent:#B6485E;    /* 紅梅 */
+    --accent-soft:#F3E2E6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic",sans-serif;
+    line-height:1.7;
+    padding:24px 18px 60px;
+  }
+  .wrap{max-width:1060px;margin:0 auto}
+  header h1{
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    font-weight:600;font-size:26px;letter-spacing:.08em;
+  }
+  header p{color:var(--muted);font-size:13px;margin-top:4px}
+  details.help{
+    margin-top:14px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:12px 16px;font-size:13px;
+  }
+  details.help summary{cursor:pointer;font-weight:600}
+  details.help ol{margin:8px 0 4px 20px}
+  details.help li{margin:4px 0}
+  .panel{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px;margin-top:18px;
+  }
+  .panel h2{font-size:14px;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:10px}
+  .ai-row{display:flex;gap:10px;flex-wrap:wrap}
+  .ai-row input{
+    flex:1;min-width:200px;padding:11px 14px;font-size:15px;
+    border:1px solid var(--line);border-radius:8px;background:#FBFAFD;
+  }
+  button{
+    font-family:inherit;font-size:15px;cursor:pointer;border-radius:8px;
+    border:1px solid var(--line);background:#fff;padding:11px 18px;
+  }
+  button:focus-visible,input:focus-visible,textarea:focus-visible,label:focus-within{
+    outline:2px solid var(--accent);outline-offset:2px;
+  }
+  .btn-ai{
+    background:var(--accent);color:#fff;border-color:var(--accent);
+    font-weight:600;letter-spacing:.04em;
+  }
+  .btn-ai:disabled{opacity:.55;cursor:wait}
+  .status{font-size:13px;color:var(--muted);margin-top:8px;min-height:1.4em}
+  .status.error{color:#B0383C}
+  textarea{
+    width:100%;min-height:230px;margin-top:6px;padding:14px;font-size:15px;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;line-height:2;
+    border:1px solid var(--line);border-radius:8px;background:#FBFAFD;resize:vertical;
+  }
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+  .tpl{display:flex;gap:8px;flex-wrap:wrap}
+  .tpl label{
+    display:flex;align-items:center;gap:7px;padding:9px 14px;
+    border:1px solid var(--line);border-radius:8px;background:#fff;
+    font-size:14px;cursor:pointer;user-select:none;
+  }
+  .tpl input{accent-color:var(--accent)}
+  .tpl label.on{border-color:var(--accent);background:var(--accent-soft)}
+  .sw{width:16px;height:16px;border-radius:4px;border:1px solid rgba(0,0,0,.12);display:inline-block}
+  .spacer{flex:1}
+  .btn-save{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+  .filebtn{display:inline-block;padding:11px 18px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer}
+  select{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:14px;font-family:inherit}
+  #previews{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:14px;margin-top:14px;
+  }
+  .slide{position:relative}
+  .slide canvas{
+    width:100%;height:auto;display:block;border-radius:6px;
+    box-shadow:0 2px 10px rgba(39,34,46,.14);
+  }
+  .slide .num{
+    position:absolute;top:6px;left:6px;background:rgba(39,34,46,.72);color:#fff;
+    font-size:11px;padding:2px 7px;border-radius:99px;
+  }
+  .slide .over{
+    position:absolute;bottom:6px;left:6px;right:6px;background:#B0383C;color:#fff;
+    font-size:11px;padding:3px 7px;border-radius:6px;text-align:center;
+  }
+  footer{margin-top:26px;font-size:12px;color:var(--muted)}
+  @media (max-width:560px){
+    #previews{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>恋愛カルーセルメーカー</h1>
+    <p>今日の話題から恋愛小説風の文章をつくり、そのままインスタ・TikTok用の画像にします</p>
+    <details class="help">
+      <summary>使い方(はじめての方はここを開いてください)</summary>
+      <ol>
+        <li>「AIでネタを作る」を押すと、今日の軽い話題をもとに文章ができます(テーマ欄に「梅雨デート」など入れると、その題材で書きます)。</li>
+        <li>できた文章は下の欄で自由に直せます。「---」(ハイフン3つ)の行が画像の区切りです。</li>
+        <li>デザインを選んで「まとめて保存(ZIP)」を押すと、01.png、02.png…が入ったZIPファイルが1つ保存されます。スマホなら「ファイル」アプリでタップすると展開できます。</li>
+        <li>イラストや写真を背景にしたいときは「背景画像をえらぶ」からアップロードしてください。文字が読めるように自動で暗め/明るめの色をかけます。</li>
+        <li>保存した画像をスマホに送って、インスタ・TikTokに手動で投稿してください。</li>
+      </ol>
+      ※重い時事ネタ(事件・災害・訃報など)はAI側で自動的に避ける設定にしています。投稿前に内容は必ずご自身の目で確認してください。
+    </details>
+  </header>
+
+  <section class="panel">
+    <h2>1. 文章をつくる</h2>
+    <div class="ai-row">
+      <input id="theme" type="text" placeholder="テーマ(空欄なら今日の話題からAIが選びます) 例:片思いの返信待ち">
+      <button class="btn-ai" id="genBtn">AIでネタを作る</button>
+    </div>
+    <div class="status" id="status"></div>
+    <textarea id="src" spellcheck="false"></textarea>
+    <p class="hint">「---」だけの行で画像を区切ります。1枚目はタイトル(表紙)になります。</p>
+  </section>
+
+  <section class="panel">
+    <h2>2. デザインを選んで保存する</h2>
+    <div class="controls">
+      <div class="tpl" id="tplPick">
+        <label class="on"><input type="radio" name="tpl" value="A" checked><span class="sw" style="background:#FBFAF7"></span>白・ミニマル明朝</label>
+        <label><input type="radio" name="tpl" value="B"><span class="sw" style="background:linear-gradient(#101535,#3A3F73)"></span>夜空・エモ</label>
+        <label><input type="radio" name="tpl" value="C"><span class="sw" style="background:#F6EEDD"></span>紙・手書き風</label>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn-save" id="saveBtn">まとめて保存(ZIP)</button>
+    </div>
+    <div class="controls">
+      <label class="filebtn">背景画像をえらぶ<input type="file" id="bgFile" accept="image/*" hidden></label>
+      <select id="scrimSel">
+        <option value="dark">画像を暗めにして白文字</option>
+        <option value="light">画像を明るくして黒文字</option>
+      </select>
+      <button id="clearBg" disabled>画像を外す</button>
+      <span class="hint" id="bgName"></span>
+    </div>
+    <p class="hint">背景画像は、ChatGPTなどの画像AIで作ったイラストや、ご自身で撮った写真をアップロードできます。文字が読みやすいよう自動で薄い色をかけます。</p>
+    <div id="previews"></div>
+  </section>
+
+  <footer>画像サイズ:1080×1350px(縦長4:5)。保存した画像は連番のまま順に選べばカルーセルになります。</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(() => {
+const W = 1080, H = 1350;
+const srcEl = document.getElementById('src');
+const previews = document.getElementById('previews');
+const statusEl = document.getElementById('status');
+const genBtn = document.getElementById('genBtn');
+const saveBtn = document.getElementById('saveBtn');
+const themeEl = document.getElementById('theme');
+
+const SERIF = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","MS PMincho",serif';
+const HAND  = '"Klee One","Klee","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif';
+
+const TPL = {
+  A:{font:SERIF, ink:'#2A2622', sub:'#9A938A',
+     bg(ctx,seed){ ctx.fillStyle='#FBFAF7'; ctx.fillRect(0,0,W,H);
+       ctx.strokeStyle='#E3DED4'; ctx.lineWidth=2; ctx.strokeRect(46,46,W-92,H-92); }},
+  B:{font:SERIF, ink:'#F4F2FA', sub:'#A9B2DE',
+     bg(ctx,seed){
+       const g=ctx.createLinearGradient(0,0,0,H);
+       g.addColorStop(0,'#0E1330'); g.addColorStop(.6,'#222858'); g.addColorStop(1,'#3A3464');
+       ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+       let s=seed*9301+49297;
+       const rnd=()=> (s=(s*9301+49297)%233280)/233280;
+       for(let i=0;i<90;i++){
+         const x=rnd()*W, y=rnd()*H*0.92, r=rnd()*1.8+0.4;
+         ctx.globalAlpha=0.25+rnd()*0.55;
+         ctx.fillStyle='#FFFFFF';
+         ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+       }
+       ctx.globalAlpha=1; }},
+  C:{font:HAND, ink:'#4A3A28', sub:'#A28D6F',
+     bg(ctx,seed){ ctx.fillStyle='#F6EEDD'; ctx.fillRect(0,0,W,H);
+       let s=seed*7919+1097;
+       const rnd=()=> (s=(s*9301+49297)%233280)/233280;
+       ctx.fillStyle='rgba(120,95,60,0.05)';
+       for(let i=0;i<420;i++){ ctx.fillRect(rnd()*W, rnd()*H, 2, 2); }
+       ctx.strokeStyle='#D8C6A6'; ctx.lineWidth=3; ctx.setLineDash([14,10]);
+       ctx.strokeRect(50,50,W-100,H-100); ctx.setLineDash([]); }}
+};
+
+const NO_START = '。、,.!?!?」』)〉》】…‥ーっゃゅょァィゥェォッャュョ々〜~:;';
+
+function parseSlides(text){
+  return text.replace(/\r/g,'').split(/^\s*-{3,}\s*$/m)
+    .map(s=>s.replace(/^\n+|\n+$/g,'')).filter(s=>s.length>0);
+}
+
+function wrapLine(ctx, line, maxW){
+  const out=[]; let cur='';
+  for(const ch of line){
+    if(ctx.measureText(cur+ch).width>maxW && cur){
+      if(NO_START.includes(ch)){ out.push(cur+ch); cur=''; }
+      else { out.push(cur); cur=ch; }
+    } else cur+=ch;
+  }
+  if(cur) out.push(cur);
+  return out.length?out:[''];
+}
+
+function layout(ctx, text, font, maxW, maxH, startSize, minSize, lineHeight){
+  for(let size=startSize; size>=minSize; size-=2){
+    ctx.font = `${size}px ${font}`;
+    const lines = text.split('\n').flatMap(p => p==='' ? [''] : wrapLine(ctx,p,maxW));
+    const total = lines.length*size*lineHeight;
+    if(total<=maxH) return {size,lines,total,fits:true};
+    if(size-2<minSize) return {size,lines,total,fits:false};
+  }
+}
+
+function drawSlide(canvas, text, idx, total, tplKey){
+  const t = TPL[tplKey];
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  let ink = t.ink, sub = t.sub, shadow = null;
+  if(bgImg){
+    drawImageCover(ctx, bgImg);
+    if(scrimSel.value === 'dark'){
+      const g = ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,'rgba(16,12,26,0.42)');
+      g.addColorStop(0.5,'rgba(16,12,26,0.58)');
+      g.addColorStop(1,'rgba(16,12,26,0.46)');
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ink = '#FDFCFF'; sub = 'rgba(253,252,255,0.85)'; shadow = 'rgba(0,0,0,0.55)';
+    } else {
+      ctx.fillStyle = 'rgba(252,250,247,0.68)'; ctx.fillRect(0,0,W,H);
+      ink = '#2A2530'; sub = 'rgba(42,37,48,0.7)'; shadow = 'rgba(255,255,255,0.85)';
+    }
+  } else {
+    t.bg(ctx, idx+1);
+  }
+  if(shadow){ ctx.shadowColor = shadow; ctx.shadowBlur = 12; }
+  ctx.fillStyle = ink;
+  ctx.textBaseline = 'top';
+  let overflow=false;
+
+  if(idx===0){
+    const r = layout(ctx, text, t.font, W-300, H*0.5, 88, 52, 1.7);
+    overflow = !r.fits;
+    ctx.font = `${r.size}px ${t.font}`;
+    ctx.textAlign='center';
+    let y = (H - r.total)/2 - 30;
+    for(const ln of r.lines){ ctx.fillText(ln, W/2, y); y += r.size*1.7; }
+    ctx.strokeStyle = sub; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(W/2-70, y+34); ctx.lineTo(W/2+70, y+34); ctx.stroke();
+    ctx.fillStyle = sub; ctx.font = `30px ${t.font}`;
+    ctx.fillText('スワイプして読む →', W/2, H-160);
+  } else {
+    const r = layout(ctx, text, t.font, W-260, H-460, 46, 32, 2.05);
+    overflow = !r.fits;
+    ctx.font = `${r.size}px ${t.font}`;
+    ctx.textAlign='left';
+    let y = (H - Math.min(r.total, H-460))/2 - 20;
+    let maxLineW = 0;
+    for(const ln of r.lines) maxLineW = Math.max(maxLineW, ctx.measureText(ln).width);
+    const x = (W - maxLineW)/2;
+    for(const ln of r.lines){ ctx.fillText(ln, x, y); y += r.size*2.05; }
+    if(idx < total-1){
+      ctx.fillStyle = sub; ctx.font = `40px ${t.font}`;
+      ctx.textAlign='right'; ctx.fillText('→', W-110, H-170);
+    }
+  }
+  ctx.fillStyle = sub; ctx.font = `26px ${t.font}`; ctx.textAlign='center';
+  ctx.fillText(`${idx+1} / ${total}`, W/2, H-104);
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  return overflow;
+}
+
+function currentTpl(){ return document.querySelector('input[name=tpl]:checked').value; }
+
+let bgImg = null;
+const bgFile = document.getElementById('bgFile');
+const scrimSel = document.getElementById('scrimSel');
+const clearBg = document.getElementById('clearBg');
+const bgName = document.getElementById('bgName');
+bgFile.addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const img = new Image();
+  img.onload = ()=>{ bgImg = img; clearBg.disabled = false; bgName.textContent = f.name; renderAll(); };
+  img.src = URL.createObjectURL(f);
+});
+clearBg.addEventListener('click', ()=>{
+  bgImg = null; clearBg.disabled = true; bgName.textContent=''; bgFile.value=''; renderAll();
+});
+scrimSel.addEventListener('change', renderAll);
+
+function drawImageCover(ctx, img){
+  const s = Math.max(W/img.width, H/img.height);
+  const w = img.width*s, h = img.height*s;
+  ctx.drawImage(img, (W-w)/2, (H-h)/2, w, h);
+}
+
+function renderAll(){
+  const slides = parseSlides(srcEl.value);
+  previews.innerHTML='';
+  if(slides.length===0){
+    previews.innerHTML='<p class="hint">文章を入れるとここにプレビューが出ます。</p>';
+    return;
+  }
+  slides.forEach((text,i)=>{
+    const box=document.createElement('div'); box.className='slide';
+    const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const overflow = drawSlide(cv, text, i, slides.length, currentTpl());
+    const num=document.createElement('span'); num.className='num'; num.textContent=(i+1);
+    box.appendChild(cv); box.appendChild(num);
+    if(overflow){
+      const ov=document.createElement('span'); ov.className='over';
+      ov.textContent='文字が多すぎます。減らすか分割してください';
+      box.appendChild(ov);
+    }
+    previews.appendChild(box);
+  });
+}
+
+let timer=null;
+srcEl.addEventListener('input', ()=>{ clearTimeout(timer); timer=setTimeout(renderAll,300); });
+document.getElementById('tplPick').addEventListener('change', ()=>{
+  document.querySelectorAll('.tpl label').forEach(l=>l.classList.toggle('on', l.querySelector('input').checked));
+  renderAll();
+});
+
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+saveBtn.addEventListener('click', async ()=>{
+  const canvases = previews.querySelectorAll('canvas');
+  if(canvases.length===0){ setStatus('先に文章を入れてください。', true); return; }
+  saveBtn.disabled=true;
+  const orig = saveBtn.textContent;
+  saveBtn.textContent='ZIPを作成中…';
+  try{
+    const zip = new JSZip();
+    let i=0;
+    for(const cv of canvases){
+      i++;
+      const blob = await new Promise(res=>cv.toBlob(res,'image/png'));
+      zip.file(String(i).padStart(2,'0')+'.png', blob);
+    }
+    const out = await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(out);
+    a.download='carousel_'+new Date().toISOString().slice(0,10)+'.zip';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    setStatus('ZIPで保存しました。スマホでは「ファイル」アプリから開けます。');
+  }catch(e){
+    console.error(e);
+    setStatus('保存に失敗しました。もう一度お試しください。', true);
+  }
+  saveBtn.textContent=orig;
+  saveBtn.disabled=false;
+});
+
+function setStatus(msg, isErr){
+  statusEl.textContent=msg;
+  statusEl.className='status'+(isErr?' error':'');
+}
+
+genBtn.addEventListener('click', async ()=>{
+  genBtn.disabled=true;
+  setStatus('AIが今日の話題を調べて執筆中です…(30秒ほどかかることがあります)');
+  const theme = themeEl.value.trim();
+  const topicPart = theme
+    ? `テーマ:「${theme}」。必要なら今日の季節感をウェブ検索で軽く補ってください。`
+    : `まずウェブ検索で、今日の日本の「軽い話題」(季節の話題、天気、食べ物、流行、明るいエンタメなど)をひとつ選んでください。`;
+  const prompt = `あなたは日本のSNSで人気の恋愛ショート小説作家です。
+${topicPart}
+事件・事故・災害・訃報・政治・戦争・病気・炎上などの重い話題は、テーマ指定があっても題材に使わず、別の軽い切り口に置き換えてください。
+その題材で、切なくて共感を呼ぶ恋愛小説風のカルーセル用テキストを書いてください。対象読者は10代後半〜30代。性的な表現は使わない。
+
+出力ルール(厳守):
+- 1行目: タイトル(15文字以内)
+- 次の行に「---」だけの行
+- 本文を5ブロック(各40〜80文字。途中に改行を1〜2回入れてよい)。各ブロックの間は「---」だけの行で区切る
+- 最後に「---」で区切って、締めの1ブロック(20〜40文字の余韻のある一文)
+- 出力はこの本文のみ。前置き・解説・コードブロック記号は一切書かない`;
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}],
+        tools:[{type:'web_search_20250305',name:'web_search'}]
+      })
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    let text = (data.content||[])
+      .filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+    text = text.replace(/```[a-z]*\n?/g,'').trim();
+    if(!text || !text.includes('---')) throw new Error('形式エラー');
+    srcEl.value = text;
+    renderAll();
+    setStatus('できました。文章は自由に直せます。');
+  }catch(e){
+    console.error(e);
+    setStatus('生成できませんでした。※「AIでネタを作る」はclaude.aiの画面内でだけ動きます。Vercelなど外部に置いたページでは、Claudeアプリで文章を作ってコピー&ペーストしてください。', true);
+  }finally{
+    genBtn.disabled=false;
+  }
+});
+
+srcEl.value = `相合傘の距離
+---
+帰り道、急に降り出した雨。
+傘を持っていたのは、
+君だけだった。
+---
+「入る?」
+なんでもない顔で言うから、
+なんでもない顔で頷いた。
+---
+肩が濡れないように、
+傘は少しだけ君の方に傾いていた。
+気づかないふりをした。
+---
+信号待ちの沈黙。
+雨の音だけが、
+ふたりの間を埋めていく。
+---
+「またね」のあと、
+君の傘が見えなくなるまで、
+雨の中で立っていた。
+---
+梅雨が、少しだけ
+好きになった。`;
+renderAll();
+})();
+</script>
+</body>
+</html>
