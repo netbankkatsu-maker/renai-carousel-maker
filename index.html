@@ -105,6 +105,23 @@
   .tag-box.empty{color:var(--muted);font-size:13px;}
   .btn-copy{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
   .btn-copy.done{background:#4CAF50;border-color:#4CAF50;}
+  .transfer-box{
+    margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:10px;
+    background:#FBFAFD;
+  }
+  .transfer-login{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .transfer-login input{
+    flex:1;min-width:190px;padding:11px 14px;font-size:15px;
+    border:1px solid var(--line);border-radius:8px;background:#fff;
+  }
+  .btn-transfer{
+    background:var(--accent);color:#fff;border-color:var(--accent);
+    font-weight:600;
+  }
+  .btn-transfer:disabled{opacity:.55;cursor:wait}
+  .transfer-link{
+    display:inline-block;margin-top:10px;color:var(--accent);font-weight:700;
+  }
   @media (max-width:560px){
     #previews{grid-template-columns:repeat(2,1fr)}
   }
@@ -160,7 +177,32 @@
   </section>
 
   <section class="panel">
-    <h2>3. ハッシュタグ</h2>
+    <h2>3. 動画にして投稿準備へ送る</h2>
+    <p class="hint" style="font-size:14px;color:var(--ink);">
+      表示中の画像を縦動画に変換し、Multi Movie Uploaderへ直接送ります。送信後にBGM・投稿文・投稿先を確認できます。
+    </p>
+    <div class="controls">
+      <label for="secondsPerSlide">1枚の表示時間</label>
+      <select id="secondsPerSlide">
+        <option value="2.5">2.5秒</option>
+        <option value="3.5" selected>3.5秒</option>
+        <option value="5">5秒</option>
+      </select>
+      <button class="btn-transfer" id="transferBtn">動画を作って投稿準備へ</button>
+    </div>
+    <div class="transfer-box" id="transferLogin" hidden>
+      <p class="hint" style="margin:0 0 8px;">初回だけ、本人用の連携コードを入力してください。</p>
+      <div class="transfer-login">
+        <input id="transferCode" type="password" autocomplete="current-password" placeholder="連携コード">
+        <button id="transferLoginBtn">連携する</button>
+      </div>
+    </div>
+    <p class="status" id="transferStatus" aria-live="polite"></p>
+    <a class="transfer-link" id="transferLink" href="#" target="_blank" rel="noopener" hidden>Multi Movie Uploaderで確認・編集する →</a>
+  </section>
+
+  <section class="panel">
+    <h2>4. ハッシュタグ</h2>
     <div id="tagBox" class="tag-box empty">文章を入れると自動でハッシュタグが出ます</div>
     <div style="margin-top:10px;display:flex;gap:10px;align-items:center;">
       <button class="btn-copy" id="copyBtn">コピー</button>
@@ -168,7 +210,7 @@
     </div>
   </section>
 
-  <footer>画像サイズ:1080×1350px(縦長4:5)。保存した画像は連番のまま順に選べばカルーセルになります。</footer>
+  <footer>画像サイズ:1080×1350px(縦長4:5)。動画送信時は1080×1920px(9:16)へ自動配置します。</footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -178,6 +220,12 @@ const W = 1080, H = 1350;
 const srcEl = document.getElementById('src');
 const previews = document.getElementById('previews');
 const saveBtn = document.getElementById('saveBtn');
+const transferBtn = document.getElementById('transferBtn');
+const transferStatus = document.getElementById('transferStatus');
+const transferLink = document.getElementById('transferLink');
+const transferLogin = document.getElementById('transferLogin');
+const transferCode = document.getElementById('transferCode');
+const transferLoginBtn = document.getElementById('transferLoginBtn');
 
 const SERIF = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","MS PMincho",serif';
 const HAND  = '"Klee One","Klee","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif';
@@ -381,6 +429,210 @@ saveBtn.addEventListener('click', async ()=>{
     saveBtn.disabled=false;
   }
 });
+
+// ── Multi Movie Uploader連携 ─────────────────────
+const VIDEO_W = 1080, VIDEO_H = 1920, VIDEO_FPS = 30;
+let transferAuthenticated = false;
+
+async function apiJson(url, options={}){
+  const response = await fetch(url, {
+    ...options,
+    headers:{'content-type':'application/json', ...(options.headers||{})},
+  });
+  const data = await response.json().catch(()=>({error:'invalid_response'}));
+  if(!response.ok){
+    const error = new Error(data.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+async function checkTransferAuth(){
+  try{
+    const result = await apiJson('/api/uploader-auth');
+    transferAuthenticated = Boolean(result.authenticated);
+  }catch{
+    transferAuthenticated = false;
+  }
+  transferLogin.hidden = transferAuthenticated;
+  return transferAuthenticated;
+}
+
+transferLoginBtn.addEventListener('click', async ()=>{
+  const code = transferCode.value.trim();
+  if(!code){ transferStatus.textContent='連携コードを入力してください。'; return; }
+  transferLoginBtn.disabled=true;
+  transferStatus.classList.remove('error');
+  transferStatus.textContent='連携を確認中…';
+  try{
+    await apiJson('/api/uploader-auth', {
+      method:'POST',
+      body:JSON.stringify({code}),
+    });
+    transferAuthenticated=true;
+    transferCode.value='';
+    transferLogin.hidden=true;
+    transferStatus.textContent='連携できました。「動画を作って投稿準備へ」を押してください。';
+  }catch(e){
+    transferStatus.classList.add('error');
+    transferStatus.textContent=e.status===401
+      ? '連携コードが違います。もう一度確認してください。'
+      : '連携を確認できませんでした。少し待って再度お試しください。';
+  }finally{
+    transferLoginBtn.disabled=false;
+  }
+});
+
+function supportedRecorderType(){
+  const candidates=[
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+    'video/mp4',
+  ];
+  return candidates.find(type=>MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function drawVideoFrame(ctx, slideCanvas, fade){
+  ctx.fillStyle='#17131D';
+  ctx.fillRect(0,0,VIDEO_W,VIDEO_H);
+  const gradient=ctx.createLinearGradient(0,0,0,VIDEO_H);
+  gradient.addColorStop(0,'#3B2532');
+  gradient.addColorStop(.5,'#17131D');
+  gradient.addColorStop(1,'#261C35');
+  ctx.fillStyle=gradient;
+  ctx.fillRect(0,0,VIDEO_W,VIDEO_H);
+  ctx.globalAlpha=fade;
+  ctx.drawImage(slideCanvas,0,(VIDEO_H-H)/2,W,H);
+  ctx.globalAlpha=1;
+}
+
+async function createCarouselVideo(canvases, secondsPerSlide){
+  if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){
+    throw new Error('video_not_supported');
+  }
+  const mimeType=supportedRecorderType();
+  if(!mimeType) throw new Error('video_not_supported');
+  const output=document.createElement('canvas');
+  output.width=VIDEO_W; output.height=VIDEO_H;
+  const ctx=output.getContext('2d');
+  const stream=output.captureStream(VIDEO_FPS);
+  const recorder=new MediaRecorder(stream,{
+    mimeType,
+    videoBitsPerSecond:8_000_000,
+  });
+  const chunks=[];
+  recorder.addEventListener('dataavailable',e=>{ if(e.data.size) chunks.push(e.data); });
+  const stopped=new Promise((resolve,reject)=>{
+    recorder.addEventListener('stop',resolve,{once:true});
+    recorder.addEventListener('error',()=>reject(new Error('video_encode_failed')),{once:true});
+  });
+  recorder.start(1000);
+  const frameMs=1000/VIDEO_FPS;
+  const slideMs=secondsPerSlide*1000;
+  const fadeMs=Math.min(300,slideMs/5);
+  for(let index=0; index<canvases.length; index++){
+    const started=performance.now();
+    while(performance.now()-started<slideMs){
+      const elapsed=performance.now()-started;
+      const fadeIn=index===0 ? 1 : Math.min(1,elapsed/fadeMs);
+      const fadeOut=index===canvases.length-1
+        ? 1
+        : Math.min(1,(slideMs-elapsed)/fadeMs);
+      drawVideoFrame(ctx,canvases[index],Math.max(0,Math.min(fadeIn,fadeOut)));
+      await new Promise(resolve=>setTimeout(resolve,frameMs));
+    }
+  }
+  recorder.stop();
+  await stopped;
+  stream.getTracks().forEach(track=>track.stop());
+  const type=recorder.mimeType.startsWith('video/mp4') ? 'video/mp4' : 'video/webm';
+  return new Blob(chunks,{type});
+}
+
+function makeIdempotencyKey(video){
+  const random=crypto.getRandomValues(new Uint32Array(4));
+  return `romance-${video.size}-${Date.now()}-${[...random].map(n=>n.toString(16)).join('')}`;
+}
+
+transferBtn.addEventListener('click', async ()=>{
+  const canvases=[...previews.querySelectorAll('canvas')];
+  if(!canvases.length){ alert('先に文章を入れてください。'); return; }
+  if(!transferAuthenticated && !(await checkTransferAuth())){
+    transferStatus.classList.add('error');
+    transferStatus.textContent='本人用の連携コードを入力してください。';
+    transferCode.focus();
+    return;
+  }
+
+  transferBtn.disabled=true;
+  transferLink.hidden=true;
+  transferStatus.classList.remove('error');
+  try{
+    const seconds=Number(document.getElementById('secondsPerSlide').value);
+    transferStatus.textContent=`動画を作成中…（約${Math.ceil(canvases.length*seconds)}秒）`;
+    const video=await createCarouselVideo(canvases,seconds);
+    const extension=video.type==='video/mp4' ? 'mp4' : 'webm';
+    const slides=parseSlides(srcEl.value);
+    const hashtags=extractTags(srcEl.value).map(tag=>tag.replace(/^#/,''));
+    const idempotencyKey=makeIdempotencyKey(video);
+
+    transferStatus.textContent='安全なアップロード先を準備中…';
+    const started=await apiJson('/api/uploader-import',{
+      method:'POST',
+      body:JSON.stringify({
+        action:'start',
+        idempotencyKey,
+        payload:{
+          originalFilename:`romance-carousel-${new Date().toISOString().slice(0,10)}.${extension}`,
+          mimeType:video.type,
+          fileSize:video.size,
+          width:VIDEO_W,
+          height:VIDEO_H,
+          duration:canvases.length*seconds,
+          title:(slides[0]||'恋愛カルーセル').replace(/\s+/g,' ').slice(0,120),
+          caption:'',
+          hashtags,
+        },
+      }),
+    });
+    if(!started.upload?.url) throw new Error('upload_url_missing');
+
+    transferStatus.textContent='動画をアップロード中…';
+    const uploaded=await fetch(started.upload.url,{
+      method:'PUT',
+      headers:{'content-type':video.type},
+      body:video,
+    });
+    if(!uploaded.ok) throw new Error('video_upload_failed');
+
+    transferStatus.textContent='投稿下書きを作成中…';
+    const completed=await apiJson('/api/uploader-import',{
+      method:'POST',
+      body:JSON.stringify({action:'complete',importId:started.importId}),
+    });
+    if(!completed.editUrl) throw new Error('edit_url_missing');
+    transferStatus.textContent='送信できました。内容を確認してから投稿できます。';
+    transferLink.href=completed.editUrl;
+    transferLink.hidden=false;
+    window.open(completed.editUrl,'_blank','noopener');
+  }catch(e){
+    console.error(e);
+    if(e.status===401){
+      transferAuthenticated=false;
+      transferLogin.hidden=false;
+    }
+    transferStatus.classList.add('error');
+    transferStatus.textContent=e.message==='video_not_supported'
+      ? 'このブラウザでは動画を作成できません。最新版のChromeでお試しください。'
+      : '動画を送信できませんでした。少し待ってからもう一度お試しください。';
+  }finally{
+    transferBtn.disabled=false;
+  }
+});
+
+checkTransferAuth();
 
 // ── ハッシュタグ抽出 ──────────────────────────────
 const tagBox  = document.getElementById('tagBox');
